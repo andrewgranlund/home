@@ -1,0 +1,12 @@
+{
+  "name": "cosy-cat-club-checks",
+  "private": true,
+  "scripts": {
+    "test": "node verify.cjs",
+    "icons": "node render-icons.cjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "playwright": "1.63.0"
+  }
+}
