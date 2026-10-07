@@ -1,11 +1,12 @@
 "use strict";
 
 // Bump VERSION whenever any precached file changes. Never reuse a released version.
-const VERSION = "v1";
+const VERSION = "v2";
 const PREFIX = `cosy-cat-club:${self.registration.scope}:`;
 const CACHE = `${PREFIX}${VERSION}`;
 const ASSETS = [
   "./index.html",
+  "./questions.js",
   "./pwa.js",
   "./manifest.webmanifest",
   "./icons/cat-192.png",

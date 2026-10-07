@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test": "node verify.cjs",
+    "curriculum": "node curriculum.cjs --official",
     "icons": "node render-icons.cjs"
   },
   "devDependencies": {
