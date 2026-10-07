@@ -7,15 +7,17 @@ const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const gameChecks = require("./game.cjs");
+const { validateBanks } = require("./curriculum.cjs");
+const enhancementChecks = require("./enhancements.cjs");
 
 const root = path.resolve(__dirname, "..");
 const workerSource = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 const version = workerSource.match(/const VERSION = "([^"]+)";/)[1];
-const assets = ["index.html", "pwa.js", "manifest.webmanifest",
+const assets = ["index.html", "questions.js", "pwa.js", "manifest.webmanifest",
   "icons/cat-192.png", "icons/cat-512.png", "icons/cat-maskable-512.png"];
 const types = { ".html": "text/html", ".js": "text/javascript",
   ".webmanifest": "application/manifest+json", ".png": "image/png" };
-const deployments = new Map(["/", "/home/", "/failure/", "/broken-update/"]
+const deployments = new Map(["/", "/home/", "/failure/", "/broken-update/", "/missing-data/"]
   .map((scope) => [scope, { version, failIcon: false }]));
 const requests = [];
 let checks = 0;
@@ -42,7 +44,8 @@ const server = http.createServer((req, res) => {
     return res.end("Not found");
   }
   const deployment = deployments.get(scope);
-  if ((deployment.failIcon && file === "icons/cat-maskable-512.png") || (deployment.failWorker && file === "sw.js")) {
+  if ((deployment.failIcon && file === "icons/cat-maskable-512.png") || (deployment.failWorker && file === "sw.js")
+    || (deployment.failQuestions && file === "questions.js")) {
     res.writeHead(503);
     return res.end("Intentional test failure");
   }
@@ -75,6 +78,8 @@ async function cacheEntries(page) {
 async function snapshot(page) {
   return page.evaluate(() => ({
     question: document.querySelector("#question").textContent,
+    key: document.querySelector("#question").dataset.key,
+    curriculum: document.querySelector("#question").dataset.curriculum,
     answers: document.querySelector("#answers").textContent,
     hint: document.querySelector("#hint").hidden,
     play: document.querySelector("#play").hidden,
@@ -191,6 +196,7 @@ async function pwaChecks(browser, origin) {
     await page.locator("#resume-button").click();
     assert.deepEqual(await snapshot(page), before);
     checks++;
+    await solveOfflineAreas(page);
     const noNetwork = await page.evaluate(async () => {
       try { await fetch("./unrelated.txt"); return false; }
       catch { return true; }
@@ -268,13 +274,32 @@ async function failureChecks(browser, origin) {
   await context.close();
   deployments.get("/failure/").failIcon = false;
 
+  deployments.get("/missing-data/").failQuestions = true;
+  const missingContext = await browser.newContext();
+  const missingPage = await missingContext.newPage();
+  await missingPage.goto(origin + "/missing-data/");
+  await missingPage.waitForFunction(() => document.querySelector("#update-status").textContent.includes("did not finish")
+    || document.querySelector("#offline-status").textContent.includes("failed"));
+  check((await missingPage.locator("#question").textContent()).includes("could not be loaded"), "Missing bank is a visible error, never an unsupported fallback question");
+  check(await missingPage.locator("#answers button").count() === 0, "Missing bank cannot produce a question");
+  check(await missingPage.locator("#new-question").isDisabled() && await missingPage.locator("#apply-settings").isDisabled(), "Unavailable game actions do not appear to succeed");
+  check(Object.keys(await cacheEntries(missingPage)).length === 0, "Question data is required in the atomic precache");
+  check(!(await missingPage.locator("#offline-status").textContent()).startsWith("Offline copy ready"), "Missing question data is never advertised as offline ready");
+  await missingPage.locator("#wellbeing summary").click();
+  await missingPage.getByRole("group", { name: "Brushing teeth", exact: true }).getByRole("button", { name: "Skip", exact: true }).click();
+  check((await missingPage.locator("#wellbeing-status").textContent()).includes("Brushing teeth: Skip"), "Optional check-in remains independent even when the bank cannot load");
+  await missingPage.locator("#close-checkin").click();
+  check(await missingPage.locator("#wellbeing").getAttribute("open") === null, "Independent check-in can always close");
+  await missingContext.close();
+  deployments.get("/missing-data/").failQuestions = false;
+
   const updateContext = await browser.newContext();
   const updatePage = await updateContext.newPage();
   await updatePage.goto(origin + "/broken-update/");
   await ready(updatePage);
   const original = await snapshot(updatePage);
   deployments.get("/broken-update/").version = "test-failed-v2";
-  deployments.get("/broken-update/").failIcon = true;
+  deployments.get("/broken-update/").failQuestions = true;
   await updatePage.locator("#grownups summary").click();
   await updatePage.locator("#check-updates").click();
   await updatePage.waitForFunction(() => document.querySelector("#update-status").textContent.includes("did not finish"));
@@ -285,6 +310,7 @@ async function failureChecks(browser, origin) {
   await updatePage.reload();
   await ready(updatePage);
   check(await updatePage.locator("#answers button").count() === 3, "Prior complete release survives broken update offline");
+  await solveOfflineAreas(updatePage);
   // Chromium may fetch worker updates outside the page context's offline emulation.
   deployments.get("/broken-update/").failWorker = true;
   await updatePage.locator("#grownups summary").click();
@@ -388,14 +414,21 @@ async function persistentOfflineCheck(origin) {
     await page.goto(origin + "/home/");
     await ready(page);
     check(await page.locator("#answers button").count() === 3, "Offline reopening survives a full browser shutdown");
-    await page.locator('[data-topic="math"]').click();
-    const display = await page.locator("#puzzle-display").textContent();
-    const [, a, op, b] = display.match(/(\d+)\s*([+\u2212])\s*(\d+)/);
-    await page.locator("#answers").getByRole("button", { name: String(op === "+" ? +a + +b : +a - +b), exact: true }).click();
-    check(await page.locator("#ticket").isVisible(), "Reopened offline app completes a real round");
+    await solveOfflineAreas(page);
   } finally {
     if (context) await context.close();
     fs.rmSync(profile, { recursive: true, force: true });
+  }
+}
+
+async function solveOfflineAreas(page) {
+  for (const area of ["math", "english", "science", "hass"]) {
+    await page.locator(`[data-topic="${area}"]`).click();
+    const q = await page.evaluate(() => CosyQuestions.bank("gentle").find((q) => q.key === document.querySelector("#question").dataset.key));
+    check(q.area === area && q.curriculum.length > 0, "Offline question has the selected curriculum area");
+    await page.locator("#answers").getByRole("button", { name: q.answer, exact: true }).click();
+    check(await page.locator("#ticket").isVisible(), `Offline ${area} completes a real round`);
+    await page.locator("#next-round").click();
   }
 }
 
@@ -406,7 +439,12 @@ async function persistentOfflineCheck(origin) {
   try {
     browser = await chromium.launch({ channel: "chrome", headless: true });
     check((await fetch(origin)).ok, "Bounded local server is responsive");
-    if (!process.argv.includes("--pwa")) await gameChecks(browser, origin + "/");
+    check(version === "v2", "Curriculum release increments worker to v2");
+    if (!process.argv.includes("--pwa")) {
+      validateBanks();
+      await gameChecks(browser, origin + "/");
+      await enhancementChecks(browser, origin + "/");
+    }
     await pwaChecks(browser, origin);
     await failureChecks(browser, origin);
     await installPromptChecks(browser, origin);

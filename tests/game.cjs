@@ -4,15 +4,13 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const file = path.join(__dirname, "..", "index.html");
-const source = fs.readFileSync(file, "utf8");
-const results = path.join(__dirname, "results");
+const results = process.env.COSY_SCREENSHOTS;
 const errors = [];
 let checks = 0;
 function check(condition, label) { assert.ok(condition, label); checks++; }
 
 module.exports = async function gameChecks(browser, url) {
-    fs.mkdirSync(results, { recursive: true });
+    if (results) fs.mkdirSync(results, { recursive: true });
     const context = await browser.newContext({ viewport: { width: 1280, height: 1000 } });
     const page = await context.newPage();
     page.on("pageerror", (error) => errors.push(error.message));
@@ -23,6 +21,9 @@ module.exports = async function gameChecks(browser, url) {
     check(await page.locator("#read-button").isHidden(), "Speech hidden by default");
     check(await page.locator("#ticket").isHidden(), "No unearned ticket");
     check(await page.locator("#grownups").getAttribute("open") === null, "Settings initially closed");
+    assert.deepEqual(await page.locator("[data-topic]").evaluateAll((nodes) => nodes.map((node) => node.dataset.topic)),
+      ["mixed", "math", "english", "science", "hass"]);
+    check(!/\bpatterns?\b|\blogic\b/i.test(await page.locator("body").textContent()), "Removed category absent from all rendered UI");
 
     async function axe(label) {
       const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
@@ -34,18 +35,8 @@ module.exports = async function gameChecks(browser, url) {
     }
     async function correctAnswer() {
       return page.evaluate(() => {
-        const tag = document.querySelector("#question-tag").textContent;
-        const display = document.querySelector("#puzzle-display").textContent.trim();
-        if (tag.startsWith("Maths")) {
-          const [, a, operation, b] = display.match(/(\d+)\s*([+\u2212])\s*(\d+)/);
-          return String(operation === "+" ? Number(a) + Number(b) : Number(a) - Number(b));
-        }
-        const hint = document.querySelector("#hint-text").textContent;
-        if (tag.startsWith("Words")) {
-          const word = hint.match(/The word is "([^"]+)"/)[1];
-          return word[display.split(" ").indexOf("_")];
-        }
-        return hint.match(/next picture is a (\w+)/)[1];
+        const key = document.querySelector("#question").dataset.key;
+        return [...CosyQuestions.bank("gentle"), ...CosyQuestions.bank("stretch")].find((q) => q.key === key).answer;
       });
     }
     async function solve() {
@@ -57,7 +48,7 @@ module.exports = async function gameChecks(browser, url) {
     }
     await selectTopic("math");
     await axe("Initial maths");
-    await page.screenshot({ path: path.join(results, "desktop.png"), fullPage: true });
+    if (results) await page.screenshot({ path: path.join(results, "desktop.png"), fullPage: true });
     const answer = await correctAnswer();
     const wrong = page.locator("#answers button").filter({ hasText: new RegExp(`^(?!${answer}$).+`) }).first();
     await wrong.click();
@@ -71,7 +62,8 @@ module.exports = async function gameChecks(browser, url) {
       && node.properties?.some((property) => property.name === "expanded" && property.value.value === true)), "Hint has computed button name and expanded state");
     check(axTree.nodes.some((node) => node.role?.value === "status"
       && node.properties?.some((property) => property.name === "live" && property.value.value === "polite")), "Feedback exposes a polite live status in the accessibility tree");
-    check((await page.locator("#question").ariaSnapshot()).includes("equals what?"), "Accessible question includes the visual arithmetic");
+    const spoken = await page.evaluate(() => CosyQuestions.bank("gentle").find((q) => q.key === document.querySelector("#question").dataset.key).spoken);
+    check((await page.locator("#question").ariaSnapshot()).includes(spoken), "Accessible question includes the visual question information");
     await axe("Hint and retry");
     const originalQuestion = await page.locator("#question").textContent();
     const originalAnswers = await page.locator("#answers").textContent();
@@ -84,7 +76,7 @@ module.exports = async function gameChecks(browser, url) {
     check(await page.locator("#hint").isVisible(), "Break preserves hint");
     await solve();
     await axe("TV ticket");
-    await page.screenshot({ path: path.join(results, "ticket.png"), fullPage: true });
+    if (results) await page.screenshot({ path: path.join(results, "ticket.png"), fullPage: true });
     await page.locator("#grownups summary").click();
     await page.locator("#level").selectOption("stretch");
     await page.locator("#reward").selectOption("done");
@@ -105,12 +97,12 @@ module.exports = async function gameChecks(browser, url) {
       await page.locator("#level").selectOption(level);
       await page.locator("#apply-settings").click();
       await page.locator("#grownups summary").click();
-      for (const topic of ["math", "logic", "spelling"]) {
+      for (const topic of ["math", "english", "science", "hass"]) {
         await selectTopic(topic);
         await axe(`${level} ${topic}`);
         let previous = "";
         for (let i = 0; i < 18; i++) {
-          const question = await page.locator("#question").textContent();
+          const question = await page.locator("#question").getAttribute("data-key");
           check(previous !== question, "Refresh avoids immediate repeat");
           const choices = await page.locator("#answers button").allTextContents();
           check(new Set(choices).size === 3, "Three unique answers");
@@ -126,20 +118,27 @@ module.exports = async function gameChecks(browser, url) {
       }
     }
     await selectTopic("mixed");
-    const observed = new Set();
-    for (let i = 0; i < 40; i++) {
-      observed.add((await page.locator("#question-tag").textContent()).split(" ")[0]);
-      await page.locator("#new-question").click();
+    let previousArea;
+    for (let cycle = 0; cycle < 10; cycle++) {
+      const observed = [];
+      for (let i = 0; i < 4; i++) {
+        const area = (await page.locator("#question-tag").textContent()).split(" ")[0];
+        check(area !== previousArea, "Mixed UI avoids consecutive same area across cycles");
+        previousArea = area;
+        observed.push(area);
+        await page.locator("#new-question").click();
+      }
+      assert.deepEqual(observed.sort(), ["English", "HASS", "Maths", "Science"]);
+      checks++;
     }
-    check(observed.size === 3, "Mixed mode exercises all three types");
 
-    await selectTopic("logic");
+    await selectTopic("science");
     for (const viewport of [{ width: 800, height: 1280 }, { width: 1024, height: 768 }, { width: 320, height: 740 }]) {
       await page.setViewportSize(viewport);
       check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `No horizontal overflow at ${viewport.width}`);
       const targets = await page.locator("#play button:visible").evaluateAll((buttons) => buttons.map((button) => ({ width: button.getBoundingClientRect().width, height: button.getBoundingClientRect().height })));
       check(targets.every((target) => target.width >= 44 && target.height >= 44), "Large touch targets");
-      await page.screenshot({ path: path.join(results, `layout-${viewport.width}.png`), fullPage: true });
+      if (results) await page.screenshot({ path: path.join(results, `layout-${viewport.width}.png`), fullPage: true });
     }
     await page.locator("#grownups summary").click();
     check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "Settings fit at 320px");
@@ -154,7 +153,7 @@ module.exports = async function gameChecks(browser, url) {
     await page.keyboard.press("Space");
     check(await page.locator("#question").evaluate((node) => node === document.activeElement), "Keyboard topic selection");
     await page.keyboard.press("Tab");
-    check(await page.locator("#answers button").first().evaluate((node) => node === document.activeElement), "Logical keyboard order");
+    check(await page.locator("#answers button").first().evaluate((node) => node === document.activeElement), "Sequential keyboard order");
     check(await page.locator("#answers button").first().evaluate((node) => getComputedStyle(node).outlineStyle !== "none"), "Keyboard focus visible");
     await page.keyboard.press("Enter");
     check((await page.locator("#feedback").textContent()).includes("Not that one") || await page.locator("#ticket").isVisible(), "Keyboard answer activates");
@@ -198,49 +197,13 @@ module.exports = async function gameChecks(browser, url) {
     check((await speechPage.locator("#feedback").textContent()).includes("isn't available"), "Speech errors visible");
     await speechContext.close();
 
-    const bankPage = await context.newPage();
-    const instrumented = source.replace(/<script src="\.\/pwa.js" defer><\/script>/, "").replace("      loadSettings();", `      window.bankForLevel = (level) => {
-        settings.level = level;
-        return [...mathQuestions(), ...spellingQuestions(), ...logicQuestions()];
-      };
-      loadSettings();`);
-    await bankPage.setContent(instrumented);
-    let bankCount = 0;
-    for (const level of ["gentle", "stretch"]) {
-      const bank = await bankPage.evaluate((level) => window.bankForLevel(level), level);
-      const keys = new Set();
-      for (const q of bank) {
-        check(!keys.has(q.key), "Unique bank keys");
-        keys.add(q.key);
-        if (q.type === "math") {
-          check(!q.prompt.includes("has 1 treats"), "Singular treat grammar");
-          const [, a, operation, b] = q.display.match(/(\d+)\s*([+\u2212])\s*(\d+)/);
-          const expected = operation === "+" ? Number(a) + Number(b) : Number(a) - Number(b);
-          check(Number(q.answer) === expected && expected >= 0 && expected <= (level === "gentle" ? 10 : 20), "Arithmetic is correct and in bounds");
-          check(q.dots.reduce((a, b) => a + b, 0) <= (level === "gentle" ? 10 : 20), "Counting visual in bounds");
-        } else if (q.type === "logic") {
-          const unitSize = level === "gentle" ? 2 : 3;
-          check(q.answer === q.sequence[q.sequence.length % unitSize], "Pattern continuation correct");
-          check(new Set(q.options).size === 3 && q.options.includes(q.answer), "Pattern choices unique and contain answer");
-        } else {
-          const word = q.key.split(":")[1];
-          const gap = q.display.split(" ").indexOf("_");
-          check(word[gap] === q.answer, "Spelling answer fills exact gap");
-          check(new Set(q.options).size === 3 && q.options.includes(q.answer), "Letter choices unique and contain answer");
-        }
-        bankCount++;
-      }
-    }
-    await bankPage.close();
     const touchContext = await browser.newContext({
       viewport: { width: 800, height: 1280 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true
     });
     const touchPage = await touchContext.newPage();
     await touchPage.goto(url);
     await touchPage.locator('[data-topic="math"]').tap();
-    const touchAnswer = await touchPage.locator("#puzzle-display").textContent();
-    const [, touchA, touchOp, touchB] = touchAnswer.match(/(\d+)\s*([+\u2212])\s*(\d+)/);
-    const touchCorrect = String(touchOp === "+" ? Number(touchA) + Number(touchB) : Number(touchA) - Number(touchB));
+    const touchCorrect = await touchPage.evaluate(() => CosyQuestions.bank("gentle").find((q) => q.key === document.querySelector("#question").dataset.key).answer);
     await touchPage.locator("#answers").getByRole("button", { name: touchCorrect, exact: true }).tap();
     check(await touchPage.locator("#ticket").isVisible(), "Tablet-emulated tap completes one question");
     await touchPage.setViewportSize({ width: 1280, height: 800 });
@@ -251,7 +214,7 @@ module.exports = async function gameChecks(browser, url) {
     check(await touchPage.locator("#hint").isVisible(), "Landscape tablet touch preserves hint across break");
     check(await touchPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "Landscape tablet reflows");
     await touchPage.locator("#grownups summary").tap();
-    await touchPage.screenshot({ path: path.join(results, "tablet-settings.png"), fullPage: true });
+    if (results) await touchPage.screenshot({ path: path.join(results, "tablet-settings.png"), fullPage: true });
     await touchContext.close();
     const edge = await chromium.launch({ channel: "msedge", headless: true });
     try {
@@ -265,7 +228,6 @@ module.exports = async function gameChecks(browser, url) {
       await edge.close();
     }
     check(errors.length === 0, `No JavaScript errors: ${errors.join("; ")}`);
-    check(bankCount === 434, "All 434 original questions retained");
     await context.close();
-    console.log(`PASS: ${checks} game checks; ${bankCount} questions checked exhaustively; interaction states, axe, layouts, keyboard, storage and speech failure.`);
+    console.log(`PASS: ${checks} game checks; four-area interactions, axe, layouts, keyboard, touch, storage and explicit speech/error handling.`);
 };

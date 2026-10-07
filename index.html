@@ -54,6 +54,15 @@
     .cat-side h2 { font-size: 2rem; margin-bottom: 6px; }
     .cat-side p { max-width: 28ch; }
     .cat-scene { width: 100%; max-width: 340px; height: auto; margin: 14px 0 20px; }
+    .celebrating #mochi-cat { transform-origin: 180px 260px; animation: cosy-cheer 1100ms ease-in-out 1; }
+    @keyframes cosy-cheer {
+      0%, 100% { transform: rotate(0deg); }
+      30% { transform: rotate(-3deg) translateY(-3px); }
+      65% { transform: rotate(3deg) translateY(-3px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .celebrating #mochi-cat { animation: none; }
+    }
     .cat-note { background: #fffefaac; border: 1px solid #d0c5dd; border-radius: 18px; padding: 13px 20px; margin: auto 0 0; font-size: 1rem; }
     .play-side { min-width: 0; padding: 30px; }
     .picker-label { font-weight: 650; margin: 0 0 10px; font-size: 1rem; }
@@ -65,14 +74,12 @@
     #question:focus, #ticket-title:focus, #rest-title:focus { outline-offset: 6px; }
     .puzzle-display { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; min-height: 94px; padding: 14px 8px; margin-bottom: 10px; border-radius: 18px; background: #f3f4ee; }
     .puzzle-text { font-size: clamp(2.2rem, 6vw, 3.2rem); font-weight: 700; letter-spacing: .07em; line-height: 1.25; }
-    .pattern-token { display: grid; place-items: center; width: 48px; height: 52px; }
-    .pattern-token .icon { width: 42px; height: 42px; }
-    .pattern-token.missing { font-size: 2.2rem; font-weight: bold; }
+    .puzzle-text.reading-text { font-size: 1.15rem; letter-spacing: normal; font-weight: 550; line-height: 1.6; padding: 4px 8px; }
     .clue { color: var(--muted); text-align: center; margin: 0 0 16px; font-size: 1rem; }
     .answers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
     .answer { min-height: 84px; padding: 12px 5px; font-size: 1.8rem; font-weight: 700; border-color: #849a88; box-shadow: 0 3px 0 #e0e5dc; }
-    .answer.word { font-size: 1.1rem; }
-    .answer .icon { display: block; width: 30px; height: 30px; margin: 0 auto 4px; }
+    .answers.text-answers { grid-template-columns: 1fr; }
+    .text-answers .answer { font-size: 1.05rem; min-height: 56px; padding: 12px; overflow-wrap: anywhere; }
     .answer[data-tried="true"] { border-style: dashed; }
     .feedback { min-height: 3.5em; padding-top: 15px; margin-bottom: 8px; font-size: 1rem; }
     .tools { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -111,6 +118,12 @@
     .app-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
     .app-actions button { max-width: 100%; }
     .grownup-body code { overflow-wrap: anywhere; }
+    .checkin-body { border-top: 1px solid var(--line); padding: 20px; }
+    .checkin-body fieldset { min-width: 0; border: 0; padding: 0; margin: 20px 0; }
+    .checkin-body legend { padding: 0 0 8px; font-weight: 650; }
+    .checkin-choices { display: flex; flex-wrap: wrap; gap: 10px; }
+    .checkin-choices button[aria-pressed="true"] { border-color: var(--green); outline: 2px solid var(--green); outline-offset: -5px; background: var(--green-light); }
+    #wellbeing-status { min-height: 3em; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     body.simple { --paper: #f7f7f2; --lilac: #eef0e8; }
     body.simple .scenery { display: none; }
@@ -140,11 +153,12 @@
       .topics { gap: 6px; }
       .topics button { padding: 8px 10px; }
       .puzzle-display { gap: 7px; }
-      .pattern-token { width: 40px; }
       .grownup-body { padding: 16px; }
     }
     @media (forced-colors: active) {
       .topics button[aria-pressed="true"] { outline: 3px solid Highlight; }
+      .checkin-choices button[aria-pressed="true"] { outline: 3px solid Highlight; }
+      .celebrating #mochi-cat { animation: none; }
       .counting .dot { background: CanvasText; border-color: CanvasText; }
       .counting .dot.second { background: Canvas; }
     }
@@ -164,19 +178,8 @@
         <ellipse fill="currentColor" cx="34" cy="15" rx="5" ry="7" transform="rotate(25 34 15)"/>
         <path fill="currentColor" d="M10 34c0-7 8-15 14-15s14 8 14 15-7 7-14 4c-7 3-14 3-14-4Z"/>
       </symbol>
-      <symbol id="i-cat" viewBox="0 0 48 48">
-        <path d="m8 19 1-13 12 8h6l12-8 1 13c8 24-40 24-32 0Z" fill="#efb67e" stroke="#303c38" stroke-width="2" stroke-linejoin="round"/>
-        <path d="M15 25h2m14 0h2m-12 5 3 2 3-2m-3 2v3m-18-7 7 2m22 0 7-2" fill="none" stroke="#303c38" stroke-width="2.5" stroke-linecap="round"/>
-      </symbol>
-      <symbol id="i-star" viewBox="0 0 48 48">
-        <path d="m24 4 6 13 14 2-10 10 2 15-12-7-12 7 2-15L4 19l14-2Z" fill="#efcd7d" stroke="#665333" stroke-width="2" stroke-linejoin="round"/>
-      </symbol>
       <symbol id="i-moon" viewBox="0 0 48 48">
         <path d="M33 5C9 0 0 30 18 41c10 6 24 0 26-10C24 39 14 14 33 5Z" fill="#c9b7dc" stroke="#665079" stroke-width="2" stroke-linejoin="round"/>
-      </symbol>
-      <symbol id="i-fish" viewBox="0 0 48 48">
-        <path d="M4 24c10-17 23-16 30-6l10-8v28l-10-8C27 40 14 41 4 24Z" fill="#b5cdbc" stroke="#365e4b" stroke-width="2" stroke-linejoin="round"/>
-        <circle cx="14" cy="23" r="2" fill="#303c38"/>
       </symbol>
       <symbol id="i-tv" viewBox="0 0 80 80">
         <path d="m27 7 13 12L53 7M27 69l-4 5m30-5 4 5" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
@@ -211,6 +214,7 @@
             <ellipse cx="181" cy="309" rx="143" ry="14" fill="#d4c9df"/>
             <rect x="42" y="257" width="276" height="48" rx="24" fill="#a8beb0" stroke="#365e4b" stroke-width="3"/>
             <path d="M65 283h225" stroke="#7e9f88" stroke-width="3" stroke-linecap="round" stroke-dasharray="3 9"/>
+            <g id="mochi-cat">
             <path d="M253 252c59 10 55-45 36-36" fill="none" stroke="#7c5036" stroke-width="28" stroke-linecap="round"/>
             <path d="M253 252c59 10 55-45 36-36" fill="none" stroke="#efb67e" stroke-width="22" stroke-linecap="round"/>
             <path d="M99 247c-4-61 17-104 73-104 66 0 102 56 83 112Z" fill="#efb67e" stroke="#7c5036" stroke-width="3"/>
@@ -226,6 +230,7 @@
             <ellipse cx="148" cy="254" rx="27" ry="13" fill="#f7cea6" stroke="#7c5036" stroke-width="3"/>
             <ellipse cx="212" cy="254" rx="27" ry="13" fill="#f7cea6" stroke="#7c5036" stroke-width="3"/>
             <path d="M141 252v7m10-7v7m54-7v7m10-7v7" stroke="#bb8056" stroke-width="2" stroke-linecap="round"/>
+            </g>
           </svg>
           <p class="cat-note">One question is enough.<br>Help counts, too.</p>
         </aside>
@@ -235,9 +240,11 @@
             <div class="topics" role="group" aria-labelledby="topic-label">
               <button type="button" data-topic="mixed" aria-pressed="true">Mix it up</button>
               <button type="button" data-topic="math" aria-pressed="false">Maths</button>
-              <button type="button" data-topic="logic" aria-pressed="false">Patterns</button>
-              <button type="button" data-topic="spelling" aria-pressed="false">Words</button>
+              <button type="button" data-topic="english" aria-pressed="false">English</button>
+              <button type="button" data-topic="science" aria-pressed="false">Science</button>
+              <button type="button" data-topic="hass" aria-pressed="false">HASS</button>
             </div>
+            <p class="small" id="area-note" hidden>HASS means Humanities and Social Sciences: people, places and the past.</p>
             <p class="question-tag" id="question-tag">One little question</p>
             <h2 id="question" tabindex="-1"></h2>
             <div class="puzzle-display" id="puzzle-display" aria-hidden="true"></div>
@@ -278,6 +285,31 @@
         </div>
       </div>
       <p class="footer-note">No timer. No scores. You can work it out together.</p>
+      <details id="wellbeing">
+        <summary>A little check-in, if you feel like it</summary>
+        <div class="checkin-body">
+          <p>These are optional. You can choose any answer, ask for help, or leave this closed. Nothing here changes your puzzle or ticket.</p>
+          <fieldset data-routine="teeth">
+            <legend>Brushing teeth</legend>
+            <div class="checkin-choices">
+              <button type="button" aria-pressed="false">Done</button>
+              <button type="button" aria-pressed="false">Not today</button>
+              <button type="button" aria-pressed="false">Skip</button>
+            </div>
+          </fieldset>
+          <fieldset data-routine="bed">
+            <legend>Making the bed</legend>
+            <div class="checkin-choices">
+              <button type="button" aria-pressed="false">Done</button>
+              <button type="button" aria-pressed="false">Not today</button>
+              <button type="button" aria-pressed="false">Skip</button>
+            </div>
+          </fieldset>
+          <p class="small">Only shown on this open page. Not saved or sent anywhere. Reloading clears the choices.</p>
+          <p id="wellbeing-status" class="small" role="status" aria-live="polite" aria-atomic="true"></p>
+          <button type="button" id="close-checkin">Close check-in</button>
+        </div>
+      </details>
       <details id="grownups">
         <summary>Grown-up corner</summary>
         <div class="grownup-body">
@@ -286,8 +318,8 @@
             <div class="field">
               <label for="level">Question level</label>
               <select id="level">
-                <option value="gentle">Gentle: numbers to 10, short words</option>
-                <option value="stretch">A little more: numbers to 20, longer words</option>
+                <option value="gentle">Gentle: smaller steps</option>
+                <option value="stretch">A little more: extra detail</option>
               </select>
             </div>
             <div class="field">
@@ -301,6 +333,7 @@
           <label class="check-label"><input type="checkbox" id="simple"> Simpler background</label>
           <label class="check-label"><input type="checkbox" id="speech"> Show the optional "Read to me" button</label>
           <p class="small">Nothing plays automatically. Reading aloud uses your device's speech service and may need a downloaded voice or an internet connection.</p>
+          <p class="small">Questions practise selected Australian Curriculum v9 Year 2 content in Maths, English, Science and HASS. These are supported practice choices, not a complete course or assessment, and are not ACARA-endorsed. The README maps every question type to its official source. Gentle uses arithmetic to 10 and two-digit place value; A little more uses arithmetic to 20 and three-digit place value.</p>
           <button type="button" class="primary" id="apply-settings">Apply settings</button>
           <p class="settings-note" id="settings-note" role="status" aria-live="polite"></p>
           <h3>A shared routine, not a lock</h3>
@@ -325,46 +358,54 @@
             <li><strong>Updates:</strong> check here when convenient. When an update is ready, finish your round, close every tab and installed window of this game, then reopen it. A new visit starts a fresh round. There is no need to interrupt a question.</li>
           </ol>
           <p class="small">No accounts, ads, external images, analytics or question uploads. Preferences stay in this browser and do not sync between devices. Reloading starts a fresh round. Reading aloud is optional and handled by your device's speech service. The website host may keep ordinary access logs.</p>
-          <p class="small">For hosting or backups, keep <code>index.html</code>, <code>pwa.js</code>, <code>sw.js</code>, <code>manifest.webmanifest</code> and the <code>icons</code> folder together. Google Drive can store these files but is not website hosting. Installation and offline setup require HTTPS or localhost, not <code>file://</code>.</p>
+          <p class="small">For hosting or backups, keep <code>index.html</code>, <code>questions.js</code>, <code>pwa.js</code>, <code>sw.js</code>, <code>manifest.webmanifest</code> and the <code>icons</code> folder together. Google Drive can store these files but is not website hosting. Installation and offline setup require HTTPS or localhost, not <code>file://</code>.</p>
         </div>
       </details>
     </main>
   </div>
+  <script src="./questions.js"></script>
   <script>
     (() => {
       "use strict";
 
       const $ = (id) => document.getElementById(id);
+      $("wellbeing").open = false;
+      for (const group of document.querySelectorAll("[data-routine]")) {
+        for (const button of group.querySelectorAll("button")) {
+          button.addEventListener("click", () => {
+            for (const choice of group.querySelectorAll("button")) {
+              choice.setAttribute("aria-pressed", String(choice === button));
+            }
+            $("wellbeing-status").textContent = `${group.querySelector("legend").textContent}: ${button.textContent}. Your puzzle and ticket stay the same.`;
+          });
+        }
+      }
+      $("close-checkin").addEventListener("click", () => {
+        $("wellbeing").open = false;
+        $("wellbeing").querySelector("summary").focus();
+      });
       const storageKey = "cosy-cat-club.preferences.v1";
       const defaults = { level: "gentle", reward: "tv", simple: false, speech: false };
-      const topicNames = { math: "Maths", logic: "Patterns", spelling: "Words" };
-      const icons = { cat: "i-cat", star: "i-star", moon: "i-moon", fish: "i-fish" };
-      const wordBank = {
-        gentle: [
-          ["cat", 1, "It says meow.", ["a", "o", "i"]],
-          ["sun", 1, "It shines in the sky.", ["u", "a", "e"]],
-          ["hat", 1, "You wear it on your head.", ["a", "i", "o"]],
-          ["dog", 1, "It says woof.", ["o", "a", "u"]],
-          ["bed", 1, "You sleep in it.", ["e", "a", "i"]],
-          ["pig", 1, "It says oink.", ["i", "e", "u"]],
-          ["cup", 1, "You drink from it.", ["u", "i", "a"]],
-          ["map", 1, "It shows where places are.", ["a", "o", "u"]],
-          ["hen", 1, "This bird lays eggs.", ["e", "i", "a"]],
-          ["bus", 1, "It takes lots of people for a ride.", ["u", "a", "e"]]
-        ],
-        stretch: [
-          ["fish", 1, "It swims and has fins.", ["i", "a", "u"]],
-          ["milk", 1, "A white drink that can come from a cow.", ["i", "e", "a"]],
-          ["nest", 1, "A bird's home for its eggs.", ["e", "a", "u"]],
-          ["duck", 1, "This bird says quack.", ["u", "a", "i"]],
-          ["sock", 1, "You wear it inside your shoe.", ["o", "a", "e"]],
-          ["frog", 2, "It hops and says ribbit.", ["o", "a", "i"]],
-          ["tail", 1, "A cat has one behind its body.", ["a", "o", "e"]],
-          ["paws", 1, "A cat walks on these.", ["a", "o", "e"]],
-          ["pink", 1, "A colour made by mixing red and white.", ["i", "a", "u"]],
-          ["jump", 1, "Push off the ground with your feet.", ["u", "a", "i"]]
-        ]
-      };
+      if (!globalThis.CosyQuestions) {
+        $("question").textContent = "The question files could not be loaded.";
+        $("feedback").textContent = "Please reopen online to restore the game files. Your grown-up can check the offline copy below.";
+        for (const button of $("play").querySelectorAll("button")) button.disabled = true;
+        for (const control of $("grownups").querySelectorAll("select, input, #apply-settings")) control.disabled = true;
+        $("settings-note").textContent = "Settings are unavailable until the question files are restored.";
+        console.error("Cosy Cat Club question data is unavailable.");
+        return;
+      }
+      const topicNames = CosyQuestions.topics;
+      const picker = CosyQuestions.createPicker();
+      const catSide = document.querySelector(".cat-side");
+      const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+      const forcedColors = matchMedia("(forced-colors: active)");
+      const stopCelebration = () => catSide.classList.remove("celebrating");
+      reducedMotion.addEventListener("change", stopCelebration);
+      forcedColors.addEventListener("change", stopCelebration);
+      catSide.addEventListener("animationend", (event) => {
+        if (event.animationName === "cosy-cheer") stopCelebration();
+      });
 
       let settings = { ...defaults };
       let topic = "mixed";
@@ -373,7 +414,6 @@
       let speechToken = 0;
       let storageNotice = "";
       const hasSpeech = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
-      const lastKeys = new Map();
 
       function loadSettings() {
         try {
@@ -394,104 +434,6 @@
         }
       }
 
-      function pick(items) { return items[Math.floor(Math.random() * items.length)]; }
-      function integer(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
-      function shuffle(items) {
-        const copy = [...items];
-        for (let i = copy.length - 1; i > 0; i--) {
-          const j = integer(0, i);
-          [copy[i], copy[j]] = [copy[j], copy[i]];
-        }
-        return copy;
-      }
-      function numberOptions(answer, max) {
-        const near = Array.from({ length: max + 1 }, (_, i) => i)
-          .filter((n) => n !== answer && Math.abs(n - answer) <= 3);
-        return shuffle([answer, ...shuffle(near).slice(0, 2)]).map(String);
-      }
-      function mathQuestions() {
-        const max = settings.level === "gentle" ? 10 : 20;
-        const questions = [];
-        for (const operation of ["+", "-"]) {
-          for (let a = 1; a <= max; a++) {
-            for (let b = 1; b <= Math.min(9, operation === "+" ? max - a : a); b++) {
-              const answer = operation === "+" ? a + b : a - b;
-              const prompt = operation === "+"
-                ? `Mochi has ${a} ${a === 1 ? "treat" : "treats"}. She finds ${b} more. How many treats now?`
-                : `Mochi has ${a} ${a === 1 ? "treat" : "treats"}. She eats ${b}. How many treats are left?`;
-              const steps = Array.from({ length: b }, (_, i) => operation === "+" ? a + i + 1 : a - i - 1);
-              questions.push({
-                type: "math", key: `math:${a}${operation}${b}`, prompt,
-                display: `${a} ${operation === "-" ? "\u2212" : "+"} ${b} = ?`,
-                spoken: `${a} ${operation === "+" ? "plus" : "minus"} ${b} equals what?`,
-                clue: "Choose a number.", answer: String(answer), max,
-                hint: operation === "+"
-                  ? `Start at ${a}. Count on ${b}: ${steps.join(", ")}. You can count the dots, too.`
-                  : `Start at ${a}. Count back ${b}: ${steps.join(", ")}. The filled dots show what is left.`,
-                dots: operation === "+" ? [a, b] : [answer, b],
-                explanation: `${a} ${operation === "+" ? "+" : "\u2212"} ${b} = ${answer}.`
-              });
-            }
-          }
-        }
-        return questions;
-      }
-      function spellingQuestions() {
-        return wordBank[settings.level].map(([word, gap, clue, options]) => {
-          const letters = [...word];
-          letters[gap] = "_";
-          return {
-            type: "spelling", key: `spelling:${word}`,
-            prompt: "Which letter fills the gap?",
-            display: letters.join(" "), spoken: letters.map((letter) => letter === "_" ? "blank" : letter).join(", "),
-            clue, answer: word[gap], options,
-            hint: `The word is "${word}". Its letters are ${[...word].join(", ")}. Which letter is missing?`,
-            explanation: `${word[gap]} makes "${word}".`
-          };
-        });
-      }
-      function logicQuestions() {
-        const shapes = Object.keys(icons);
-        const questions = [];
-        for (const first of shapes) {
-          for (const second of shapes.filter((shape) => shape !== first)) {
-            const templates = settings.level === "gentle"
-              ? [[first, second, first, second]]
-              : [[first, first, second, first, first], [first, second, second, first, second]];
-            for (const sequence of templates) {
-              const answer = settings.level === "gentle" ? first : second;
-              const unit = settings.level === "gentle" ? [first, second] : sequence.slice(0, 3);
-              questions.push({
-                type: "logic", key: `logic:${sequence.join("-")}`, prompt: "What comes next?",
-                sequence, spoken: sequence.join(", ") + ", what comes next?",
-                clue: "Look for the repeating group.", answer,
-                options: [answer, ...shuffle(shapes.filter((shape) => shape !== answer)).slice(0, 2)],
-                hint: `The group is: ${unit.join(", ")}. It repeats. The next picture is a ${answer}.`,
-                explanation: `A ${answer} comes next.`
-              });
-            }
-          }
-        }
-        return questions;
-      }
-      function chooseQuestion() {
-        const type = topic === "mixed" ? pick(Object.keys(topicNames)) : topic;
-        const pool = type === "math" ? mathQuestions() : type === "logic" ? logicQuestions() : spellingQuestions();
-        const previous = lastKeys.get(`${type}:${settings.level}`);
-        const question = pick(pool.filter((item) => item.key !== previous));
-        lastKeys.set(`${type}:${settings.level}`, question.key);
-        question.options = type === "math" ? numberOptions(Number(question.answer), question.max) : shuffle(question.options);
-        return question;
-      }
-      function icon(name) {
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.classList.add("icon");
-        svg.setAttribute("aria-hidden", "true");
-        const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
-        use.setAttribute("href", `#${icons[name]}`);
-        svg.append(use);
-        return svg;
-      }
       function cancelSpeech() {
         speechToken++;
         if (hasSpeech) window.speechSynthesis.cancel();
@@ -502,46 +444,34 @@
         $("play").hidden = next !== "play";
         $("ticket").hidden = next !== "ticket";
         $("rest").hidden = next !== "rest";
+        if (next !== "ticket") stopCelebration();
       }
       function renderQuestion(moveFocus) {
         cancelSpeech();
         setScreen("play");
         $("cat-title").textContent = "Hello, I'm Mochi.";
         $("cat-message").textContent = "Fancy a little puzzle with me?";
-        $("question-tag").textContent = `${topicNames[current.type]} \u00b7 One little question`;
+        $("question-tag").textContent = `${topicNames[current.area]} \u00b7 One little question`;
+        $("area-note").hidden = current.area !== "hass";
+        $("question").dataset.key = current.key;
+        $("question").dataset.curriculum = current.curriculum.join(" ");
         $("question").textContent = current.prompt;
         $("clue").textContent = current.clue;
         $("puzzle-display").replaceChildren();
-        if (current.sequence) {
-          for (const shape of current.sequence) {
-            const token = document.createElement("span");
-            token.className = "pattern-token";
-            token.append(icon(shape));
-            $("puzzle-display").append(token);
-          }
-          const missing = document.createElement("span");
-          missing.className = "pattern-token missing";
-          missing.textContent = "?";
-          $("puzzle-display").append(missing);
-        } else {
-          const text = document.createElement("span");
-          text.className = "puzzle-text";
-          text.textContent = current.display;
-          $("puzzle-display").append(text);
-        }
+        const text = document.createElement("span");
+        text.className = `puzzle-text${current.compact ? "" : " reading-text"}`;
+        text.textContent = current.display;
+        $("puzzle-display").append(text);
         const description = document.createElement("span");
         description.className = "sr-only";
         description.textContent = ` ${current.spoken}`;
         $("question").append(description);
         $("answers").replaceChildren();
+        $("answers").classList.toggle("text-answers", current.options.some((option) => option.length > 4));
         for (const option of current.options) {
           const button = document.createElement("button");
           button.type = "button";
           button.className = "answer";
-          if (current.type === "logic") {
-            button.classList.add("word");
-            button.append(icon(option));
-          }
           button.append(document.createTextNode(option));
           button.addEventListener("click", () => answerQuestion(option, button));
           $("answers").append(button);
@@ -565,7 +495,7 @@
         if (moveFocus) $("question").focus();
       }
       function newQuestion(moveFocus = true) {
-        current = chooseQuestion();
+        current = picker.next(topic, settings.level);
         renderQuestion(moveFocus);
       }
       function answerQuestion(option, button) {
@@ -584,6 +514,7 @@
         $("cat-message").textContent = "Our puzzle is all done.";
         $("answer-summary").textContent = current.explanation;
         updateReward();
+        if (!reducedMotion.matches && !forcedColors.matches) catSide.classList.add("celebrating");
         $("ticket-title").focus();
       }
       function updateReward() {
