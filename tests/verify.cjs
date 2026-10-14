@@ -7,6 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const gameChecks = require("./game.cjs");
+const revisitChecks = require("./revisit.cjs");
 const { validateBanks } = require("./curriculum.cjs");
 const enhancementChecks = require("./enhancements.cjs");
 
@@ -160,12 +161,12 @@ async function pwaChecks(browser, origin) {
     const entries = allCaches[`cosy-cat-club:${origin}${scope}:${version}`];
     check(entries.length === assets.length, "Only required local assets are precached");
     check(assets.every((asset) => entries.includes(origin + scope + asset)), "Complete precache for scope");
-    await page.locator("#grownups summary").click();
+    await page.locator("#grownups > summary").click();
     await page.locator("#check-offline").click();
     await page.waitForFunction(() => document.querySelector("#app-action-status").textContent.startsWith("Offline copy ready"));
     check((await page.getByRole("status").allTextContents()).some((text) => text.startsWith("Offline copy ready")), "Explicit status check is announced");
     check(await page.locator("#offline-status").getAttribute("aria-live") === null, "Background setup does not announce over the puzzle");
-    await page.locator("#grownups summary").click();
+    await page.locator("#grownups > summary").click();
   }
 
   // Isolation includes unrelated same-origin and another copy of the app.
@@ -217,7 +218,7 @@ async function pwaChecks(browser, origin) {
   await ready(sameScopeTab);
   const secondQuestion = await snapshot(sameScopeTab);
   deployments.get("/home/").version = "test-v2";
-  await homePage.locator("#grownups summary").click();
+  await homePage.locator("#grownups > summary").click();
   await homePage.locator("#check-updates").click();
   await homePage.waitForFunction(() => document.querySelector("#update-status").textContent.startsWith("An update is ready"));
   check(await homePage.evaluate(async () => (await navigator.serviceWorker.getRegistration()).waiting.state) === "installed", "New worker waits instead of forcing activation");
@@ -253,7 +254,7 @@ async function pwaChecks(browser, origin) {
     const key = (await caches.keys()).find((key) => key.endsWith("/home/:test-v2"));
     await (await caches.open(key)).delete(new URL("./icons/cat-192.png", location.href).href);
   });
-  await updatedPage.locator("#grownups summary").click();
+  await updatedPage.locator("#grownups > summary").click();
   await updatedPage.locator("#check-offline").click();
   await updatedPage.waitForFunction(() => document.querySelector("#offline-status").textContent.startsWith("Offline copy is incomplete"));
   check((await updatedPage.locator("#offline-status").textContent()).startsWith("Offline copy is incomplete"), "Evicted asset is not falsely reported ready");
@@ -300,7 +301,7 @@ async function failureChecks(browser, origin) {
   const original = await snapshot(updatePage);
   deployments.get("/broken-update/").version = "test-failed-v2";
   deployments.get("/broken-update/").failQuestions = true;
-  await updatePage.locator("#grownups summary").click();
+  await updatePage.locator("#grownups > summary").click();
   await updatePage.locator("#check-updates").click();
   await updatePage.waitForFunction(() => document.querySelector("#update-status").textContent.includes("did not finish"));
   assert.deepEqual(await snapshot(updatePage), original);
@@ -313,7 +314,7 @@ async function failureChecks(browser, origin) {
   await solveOfflineAreas(updatePage);
   // Chromium may fetch worker updates outside the page context's offline emulation.
   deployments.get("/broken-update/").failWorker = true;
-  await updatePage.locator("#grownups summary").click();
+  await updatePage.locator("#grownups > summary").click();
   await updatePage.locator("#check-updates").click();
   await updatePage.waitForFunction(() => document.querySelector("#update-status").textContent.includes("Could not check"));
   check((await updatePage.locator("#update-status").textContent()).includes("Could not check"), "Unavailable update endpoint reports failure, not success");
@@ -327,7 +328,7 @@ async function failureChecks(browser, origin) {
   });
   const unsupportedPage = await unsupported.newPage();
   await unsupportedPage.goto(origin);
-  await unsupportedPage.locator("#grownups summary").click();
+  await unsupportedPage.locator("#grownups > summary").click();
   check((await unsupportedPage.locator("#offline-status").textContent()).includes("does not support"), "Unsupported service workers are disclosed");
   await unsupportedPage.locator("#speech").check();
   await unsupportedPage.locator("#apply-settings").click();
@@ -341,7 +342,7 @@ async function failureChecks(browser, origin) {
   });
   const blockedPage = await blocked.newPage();
   await blockedPage.goto(origin);
-  await blockedPage.locator("#grownups summary").click();
+  await blockedPage.locator("#grownups > summary").click();
   check((await blockedPage.locator("#offline-status").textContent()).includes("failed or is blocked"), "Blocked registration is explicit");
   check(await blockedPage.locator("#answers button").count() === 3, "Blocked registration does not block game");
   await blocked.close();
@@ -349,7 +350,7 @@ async function failureChecks(browser, origin) {
   const fileContext = await browser.newContext();
   const filePage = await fileContext.newPage();
   await filePage.goto(pathToFileURL(path.join(root, "index.html")).href);
-  await filePage.locator("#grownups summary").click();
+  await filePage.locator("#grownups > summary").click();
   check((await filePage.locator("#offline-status").textContent()).includes("cannot install"), "file:// does not claim install/offline support");
   await fileContext.close();
 }
@@ -373,7 +374,7 @@ async function installPromptChecks(browser, origin) {
     }, outcome);
     check(await page.evaluate(() => window.promptCalls) === 0, "Install prompt never opens automatically");
     check(await page.locator("#grownups").getAttribute("open") === null, "Installation does not open grown-up corner");
-    await page.locator("#grownups summary").click();
+    await page.locator("#grownups > summary").click();
     if (outcome === "dismissed") {
       const a11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
       check(a11y.violations.length === 0, `Install controls accessibility: ${JSON.stringify(a11y.violations)}`);
@@ -389,10 +390,10 @@ async function installPromptChecks(browser, origin) {
     check(await page.locator("#app-action-status").evaluate((node) => node === document.activeElement), "Focus returns to the installation result when the single-use button disappears");
     assert.deepEqual(await snapshot(page), question);
     checks++;
-    await page.locator("#grownups summary").click();
+    await page.locator("#grownups > summary").click();
   }
   await page.evaluate(() => window.dispatchEvent(new Event("appinstalled")));
-  await page.locator("#grownups summary").click();
+  await page.locator("#grownups > summary").click();
   check((await page.locator("#install-status").textContent()).startsWith("Installed."), "Confirmed installation is distinguished from request");
   await context.close();
 }
@@ -439,10 +440,11 @@ async function solveOfflineAreas(page) {
   try {
     browser = await chromium.launch({ channel: "chrome", headless: true });
     check((await fetch(origin)).ok, "Bounded local server is responsive");
-    check(version === "v2", "Curriculum release increments worker to v2");
+    check(version === "v3", "Revisit release increments worker to v3");
     if (!process.argv.includes("--pwa")) {
       validateBanks();
       await gameChecks(browser, origin + "/");
+      await revisitChecks(browser, origin + "/");
       await enhancementChecks(browser, origin + "/");
     }
     await pwaChecks(browser, origin);
