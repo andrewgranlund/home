@@ -52,6 +52,14 @@ The collapsed **A little check-in, if you feel like it** section offers brushing
 
 Only a correct puzzle answer starts Mochi's gentle 1.1-second sway, once. The scenery does not move; there are no flashes, sounds or interaction-blocking timers. Ticket text and heading focus convey completion independently. Reduced-motion and forced-colours modes show the same still cat and completion words without animation. Changing these preferences cancels an active celebration without replaying it later. Keyboard users can move on immediately.
 
+## Questions to revisit
+
+The collapsed **Grown-up corner** has a local-only **Questions to revisit** list. It records an exact snapshot only when an **unanswered** puzzle is replaced by choosing a different topic/category or by using **Different question**. Initial loads, solved/ticket questions, next round, breaks/resume, settings and level changes, and other refreshes are not recorded. A topic switch saves the outgoing question before replacement.
+
+Each snapshot keeps the area, prompt and display, answer choices, correct answer, hint, explanation and Year 2 curriculum identifier/mapping so it remains useful if the bank later changes. Repeated skips of the same question update one record rather than growing the list. The newest record is first and the list is capped at 50, discarding the oldest when full. It never saves check-in choices, a child name, identifier, diagnosis, score, ticket state or any network data; it is not synced or sent to a server.
+
+Grown-ups can reveal task details and the answer/support inside the list, then use the inline **Clear all revisit questions** confirmation to remove every record from that browser. The list remains closed with the Grown-up corner on load and does not create a child-facing count, warning, gate, score or interruption. If browser local storage is blocked or unavailable, the puzzle continues and the Grown-up corner calmly says that revisit questions cannot be saved in that browser.
+
 ## Local preview
 
 Keep `index.html`, `questions.js`, `pwa.js`, `sw.js`, `manifest.webmanifest` and `icons` together. From this directory, if Python is installed:
@@ -89,10 +97,10 @@ On Windows, use Chrome/Edge's address-bar install icon, or Chrome's **Cast, save
 - The first online visit atomically precaches the HTML, question/curriculum data script, PWA script, manifest and three PNG icons. The service-worker script itself is stored by the browser's service-worker machinery. Nothing is fetched from third-party asset services.
 - The worker is cache-first for the two entry points (`./` and `./index.html`, including navigation query strings) and exact listed assets. It does not cache/intercept other routes, cross-origin requests or non-GET requests. A missing cached asset falls back to the network without silently saving a mixed release.
 - A cached game can reopen offline without installation. **Check offline copy** verifies the current saved files; browser storage can be evicted or cleared, so no permanent offline guarantee is possible. A missing/incomplete cache is reported, not treated as ready.
-- Settings are saved only in this browser, with a visible fallback if storage is blocked. No device sync. Break/resume preserves the current question, choices and hint while the page stays open; a reload or reopening starts a fresh round.
+- Settings and saved revisit-question snapshots are saved only in this browser, with a visible fallback if storage is blocked. No device sync. Break/resume preserves the current question, choices and hint while the page stays open; a reload or reopening starts a fresh round while saved revisit questions remain available.
 - Read aloud is hidden by default and speaks only after being enabled and clicked. It uses the device/browser speech service, which may use an online voice. There is no automatic audio, timer or score.
 - Every release **must change `VERSION` in `sw.js` whenever any cached file changes**. Upload all files as one deployment. `cache.addAll` commits the required assets as a batch; a failed install cannot replace the active release. Caches are named by this app's exact registration scope and version, so another site directory's caches are not deleted.
-- This local enhancement bumps the worker from `v1` to `v2` and adds `questions.js` to that atomic batch.
+- This local enhancement bumps the worker from `v2` to `v3`; the complete app asset list remains atomically precached.
 - A new worker waits while any game tab/window is open. There is deliberately no `skipWaiting`, no forced reload and no apply-update button. **Check for updates** is only a check. After an update is ready, finish the round, close every game tab and installed window, then reopen. Only then can the new worker activate and remove this scope's older caches. Background checks do not announce over the child's puzzle; deliberate grown-up button actions have a polite live status.
 
 If the offline copy is incomplete, first revisit online after closing every game window. If that does not repair it, a grown-up can clear this site's stored data in the browser's site settings and revisit online (this also removes preferences and the saved offline copy). On a developer machine, DevTools > Application > Service Workers / Storage can unregister the worker and clear **this app's** data. Do not clear unrelated sites. A maintainer can also publish a new version to trigger a complete fresh precache.

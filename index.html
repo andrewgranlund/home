@@ -115,6 +115,22 @@
     .grownup-body p { max-width: 80ch; }
     .grownup-body li { margin-bottom: 10px; padding-left: 4px; }
     .settings-note { min-height: 1.5em; font-size: .9rem; color: var(--muted); margin: 10px 0 24px; }
+    .revisit-section { border-top: 1px solid var(--line); margin-top: 26px; padding-top: 22px; }
+    .revisit-section h3 { margin-bottom: 8px; }
+    .revisit-list { display: grid; gap: 12px; margin: 16px 0; padding: 0; list-style: none; }
+    .revisit-list > li { margin: 0; padding: 0; }
+    .revisit-list details { margin: 0; background: #f8faf5; }
+    .revisit-list summary { overflow-wrap: anywhere; }
+    .revisit-entry { padding: 18px; }
+    .revisit-entry p, .revisit-entry dl, .revisit-entry ul { margin-bottom: 16px; }
+    .revisit-entry dt { font-weight: 700; }
+    .revisit-entry dd { margin: 0 0 12px; overflow-wrap: anywhere; }
+    .revisit-entry ul { padding-left: 24px; }
+    .revisit-answer { margin-top: 14px; background: var(--card); }
+    .revisit-actions, .revisit-confirmation { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .revisit-confirmation { margin-top: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--lilac); }
+    .revisit-confirmation p { flex: 1 1 100%; margin: 0; }
+    #revisit-status { min-height: 1.5em; }
     .app-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
     .app-actions button { max-width: 100%; }
     .grownup-body code { overflow-wrap: anywhere; }
@@ -336,6 +352,21 @@
           <p class="small">Questions practise selected Australian Curriculum v9 Year 2 content in Maths, English, Science and HASS. These are supported practice choices, not a complete course or assessment, and are not ACARA-endorsed. The README maps every question type to its official source. Gentle uses arithmetic to 10 and two-digit place value; A little more uses arithmetic to 20 and three-digit place value.</p>
           <button type="button" class="primary" id="apply-settings">Apply settings</button>
           <p class="settings-note" id="settings-note" role="status" aria-live="polite"></p>
+          <section class="revisit-section" aria-labelledby="revisit-heading">
+            <h3 id="revisit-heading" tabindex="-1">Questions to revisit</h3>
+            <p class="small" id="revisit-intro">Questions are saved here only when an unanswered question is replaced by a different topic or by Different question. They stay on this browser.</p>
+            <p class="small" id="revisit-empty">No questions to revisit yet.</p>
+            <ol class="revisit-list" id="revisit-list" aria-describedby="revisit-intro"></ol>
+            <div class="revisit-actions">
+              <button type="button" id="revisit-clear" hidden>Clear all revisit questions</button>
+            </div>
+            <div class="revisit-confirmation" id="revisit-confirmation" hidden>
+              <p>Clear every saved revisit question from this browser?</p>
+              <button type="button" class="primary" id="revisit-confirm">Clear questions</button>
+              <button type="button" id="revisit-cancel">Keep questions</button>
+            </div>
+            <p class="small" id="revisit-status" role="status" aria-live="polite" aria-atomic="true"></p>
+          </section>
           <h3>A shared routine, not a lock</h3>
           <p>One correct answer finishes the round, including an answer worked out together. Hints, retries, breaks and switching questions are unlimited. The game never takes away a finished ticket on its own.</p>
           <p>The ticket is a visual cue for a grown-up. This game cannot block a TV, control another app, or verify parental permission. "Grown-up corner" is not password protected.</p>
@@ -385,6 +416,8 @@
         $("wellbeing").querySelector("summary").focus();
       });
       const storageKey = "cosy-cat-club.preferences.v1";
+      const revisitStorageKey = "cosy-cat-club.revisit.v1";
+      const maxRevisitQuestions = 50;
       const defaults = { level: "gentle", reward: "tv", simple: false, speech: false };
       if (!globalThis.CosyQuestions) {
         $("question").textContent = "The question files could not be loaded.";
@@ -413,8 +446,151 @@
       let state = "play";
       let speechToken = 0;
       let storageNotice = "";
+      let revisitQuestions = [];
       const hasSpeech = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 
+      function validText(value, maxLength = 4000) {
+        return typeof value === "string" && value.trim().length > 0 && value.length <= maxLength;
+      }
+      function validCurriculumMapping(mapping) {
+        return mapping && typeof mapping === "object" && validText(mapping.id, 80) &&
+          validText(mapping.area, 40) && mapping.year === 2 && validText(mapping.version, 20) &&
+          validText(mapping.focus) && validText(mapping.practice);
+      }
+      function validRevisitQuestion(entry) {
+        return entry && typeof entry === "object" && validText(entry.key, 200) &&
+          validText(entry.area, 40) && validText(entry.prompt) && validText(entry.display) &&
+          validText(entry.answer, 1000) && validText(entry.hint) && validText(entry.explanation) &&
+          Array.isArray(entry.choices) && entry.choices.length === 3 &&
+          entry.choices.every((choice) => validText(choice, 1000)) &&
+          new Set(entry.choices).size === 3 && entry.choices.includes(entry.answer) &&
+          Array.isArray(entry.curriculum) && entry.curriculum.length > 0 &&
+          entry.curriculum.length <= 4 && entry.curriculum.every(validCurriculumMapping);
+      }
+      function setRevisitStatus(message) {
+        $("revisit-status").textContent = message;
+      }
+      function renderRevisitQuestions() {
+        const list = $("revisit-list");
+        list.replaceChildren();
+        $("revisit-empty").hidden = revisitQuestions.length > 0;
+        $("revisit-clear").hidden = revisitQuestions.length === 0;
+        $("revisit-confirmation").hidden = true;
+        for (const entry of revisitQuestions) {
+          const item = document.createElement("li");
+          const details = document.createElement("details");
+          const summary = document.createElement("summary");
+          summary.textContent = `${entry.area} · ${entry.prompt}`;
+          details.append(summary);
+          const content = document.createElement("div");
+          content.className = "revisit-entry";
+          const task = document.createElement("p");
+          const taskLabel = document.createElement("strong");
+          taskLabel.textContent = "Task: ";
+          task.append(taskLabel, entry.display);
+          content.append(task);
+          const choices = document.createElement("ul");
+          choices.setAttribute("aria-label", "Choices");
+          for (const choice of entry.choices) {
+            const choiceItem = document.createElement("li");
+            choiceItem.textContent = choice;
+            choices.append(choiceItem);
+          }
+          content.append(choices);
+          const answerDetails = document.createElement("details");
+          answerDetails.className = "revisit-answer";
+          const answerSummary = document.createElement("summary");
+          answerSummary.textContent = "Show grown-up answer and support";
+          answerDetails.append(answerSummary);
+          const answerContent = document.createElement("div");
+          answerContent.className = "revisit-entry";
+          for (const [label, value] of [
+            ["Correct answer", entry.answer],
+            ["Hint", entry.hint],
+            ["Explanation", entry.explanation]
+          ]) {
+            const paragraph = document.createElement("p");
+            const strong = document.createElement("strong");
+            strong.textContent = `${label}: `;
+            paragraph.append(strong, value);
+            answerContent.append(paragraph);
+          }
+          answerDetails.append(answerContent);
+          content.append(answerDetails);
+          const mapping = document.createElement("dl");
+          const mappingLabel = document.createElement("dt");
+          mappingLabel.textContent = "Curriculum mapping";
+          mapping.append(mappingLabel);
+          for (const itemMapping of entry.curriculum) {
+            const mappingValue = document.createElement("dd");
+            mappingValue.textContent = `${itemMapping.id} · Year ${itemMapping.year}, v${itemMapping.version}: ${itemMapping.focus} Practice: ${itemMapping.practice}`;
+            mapping.append(mappingValue);
+          }
+          content.append(mapping);
+          details.append(content);
+          item.append(details);
+          list.append(item);
+        }
+      }
+      function loadRevisitQuestions() {
+        try {
+          const raw = localStorage.getItem(revisitStorageKey);
+          if (!raw) return;
+          const saved = JSON.parse(raw);
+          if (!Array.isArray(saved) || saved.length > maxRevisitQuestions || !saved.every(validRevisitQuestion)) {
+            setRevisitStatus("Saved revisit questions could not be read safely in this browser.");
+            console.warn("Could not use saved revisit questions because their format was not recognised.");
+            return;
+          }
+          const seen = new Set();
+          revisitQuestions = saved.filter((entry) => {
+            if (seen.has(entry.key)) return false;
+            seen.add(entry.key);
+            return true;
+          });
+        } catch (error) {
+          setRevisitStatus("Revisit questions cannot be saved in this browser. The game can still be played.");
+          console.warn("Could not load Cosy Cat Club revisit questions.", error);
+        }
+      }
+      function persistRevisitQuestions(entries) {
+        try {
+          localStorage.setItem(revisitStorageKey, JSON.stringify(entries));
+          return true;
+        } catch (error) {
+          setRevisitStatus("Revisit questions cannot be saved in this browser. The game can still be played.");
+          console.warn("Could not save Cosy Cat Club revisit questions.", error);
+          return false;
+        }
+      }
+      function snapshotCurrentQuestion() {
+        return {
+          key: current.key,
+          area: topicNames[current.area],
+          prompt: current.prompt,
+          display: current.display,
+          choices: [...current.options],
+          answer: current.answer,
+          hint: current.hint,
+          explanation: current.explanation,
+          curriculum: current.curriculum.map((id) => {
+            const mapping = CosyQuestions.curriculum[id];
+            return {
+              id: mapping.id, area: mapping.area, year: mapping.year, version: mapping.version,
+              focus: mapping.focus, practice: mapping.practice
+            };
+          })
+        };
+      }
+      function saveCurrentForRevisit() {
+        if (state !== "play" || !current) return;
+        const snapshot = snapshotCurrentQuestion();
+        const nextQuestions = [snapshot, ...revisitQuestions.filter((entry) => entry.key !== snapshot.key)]
+          .slice(0, maxRevisitQuestions);
+        if (!persistRevisitQuestions(nextQuestions)) return;
+        revisitQuestions = nextQuestions;
+        renderRevisitQuestions();
+      }
       function loadSettings() {
         try {
           const raw = localStorage.getItem(storageKey);
@@ -586,6 +762,7 @@
       for (const button of document.querySelectorAll("[data-topic]")) {
         button.addEventListener("click", () => {
           if (topic === button.dataset.topic) return;
+          saveCurrentForRevisit();
           topic = button.dataset.topic;
           for (const item of document.querySelectorAll("[data-topic]")) {
             item.setAttribute("aria-pressed", String(item.dataset.topic === topic));
@@ -593,7 +770,10 @@
           newQuestion();
         });
       }
-      $("new-question").addEventListener("click", () => newQuestion());
+      $("new-question").addEventListener("click", () => {
+        saveCurrentForRevisit();
+        newQuestion();
+      });
       $("next-round").addEventListener("click", () => newQuestion());
       $("hint-button").addEventListener("click", () => {
         const show = $("hint").hidden;
@@ -617,10 +797,32 @@
       });
       $("read-button").addEventListener("click", readQuestion);
       $("apply-settings").addEventListener("click", applySettings);
+      $("revisit-clear").addEventListener("click", () => {
+        $("revisit-confirmation").hidden = false;
+        $("revisit-confirm").focus();
+      });
+      $("revisit-cancel").addEventListener("click", () => {
+        $("revisit-confirmation").hidden = true;
+        $("revisit-clear").focus();
+      });
+      $("revisit-confirm").addEventListener("click", () => {
+        try {
+          localStorage.removeItem(revisitStorageKey);
+          revisitQuestions = [];
+          renderRevisitQuestions();
+          setRevisitStatus("Revisit questions cleared from this browser.");
+          $("revisit-heading").focus();
+        } catch (error) {
+          setRevisitStatus("Revisit questions cannot be cleared in this browser right now.");
+          console.warn("Could not clear Cosy Cat Club revisit questions.", error);
+          $("revisit-cancel").focus();
+        }
+      });
       window.addEventListener("pagehide", cancelSpeech);
       document.addEventListener("visibilitychange", () => { if (document.hidden) cancelSpeech(); });
 
       loadSettings();
+      loadRevisitQuestions();
       $("level").value = settings.level;
       $("reward").value = settings.reward;
       $("simple").checked = settings.simple;
@@ -631,6 +833,7 @@
         button.setAttribute("aria-pressed", String(button.dataset.topic === topic));
       }
       $("grownups").open = false;
+      renderRevisitQuestions();
       updateReward();
       newQuestion(false);
     })();
