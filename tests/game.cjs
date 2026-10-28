@@ -77,7 +77,7 @@ module.exports = async function gameChecks(browser, url) {
     await solve();
     await axe("TV ticket");
     if (results) await page.screenshot({ path: path.join(results, "ticket.png"), fullPage: true });
-    await page.locator("#grownups summary").click();
+    await page.locator("#grownups > summary").click();
     await page.locator("#level").selectOption("stretch");
     await page.locator("#reward").selectOption("done");
     await page.locator("#simple").check();
@@ -86,17 +86,17 @@ module.exports = async function gameChecks(browser, url) {
     check(await page.locator("#ticket-title").textContent() === "All done!", "Alternative reward");
     check(await page.locator("body").getAttribute("class") === "simple", "Simple background");
     await axe("Settings open and alternative reward");
-    await page.locator("#grownups summary").click();
+    await page.locator("#grownups > summary").click();
     await page.reload();
     check(await page.locator("#level").inputValue() === "stretch", "Level persists locally");
     check(await page.locator("#reward").inputValue() === "done", "Reward persists locally");
     check(await page.locator("#ticket").isHidden(), "Reload starts fresh");
 
     for (const level of ["gentle", "stretch"]) {
-      await page.locator("#grownups summary").click();
+      await page.locator("#grownups > summary").click();
       await page.locator("#level").selectOption(level);
       await page.locator("#apply-settings").click();
-      await page.locator("#grownups summary").click();
+      await page.locator("#grownups > summary").click();
       for (const topic of ["math", "english", "science", "hass"]) {
         await selectTopic(topic);
         await axe(`${level} ${topic}`);
@@ -140,10 +140,10 @@ module.exports = async function gameChecks(browser, url) {
       check(targets.every((target) => target.width >= 44 && target.height >= 44), "Large touch targets");
       if (results) await page.screenshot({ path: path.join(results, `layout-${viewport.width}.png`), fullPage: true });
     }
-    await page.locator("#grownups summary").click();
+    await page.locator("#grownups > summary").click();
     check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "Settings fit at 320px");
     await axe("Small screen with settings");
-    await page.locator("#grownups summary").click();
+    await page.locator("#grownups > summary").click();
     await page.setViewportSize({ width: 800, height: 1000 });
     await page.addStyleTag({ content: "html { font-size: 200% !important; } * { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }" });
     check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "Large text and text spacing reflow");
@@ -159,7 +159,7 @@ module.exports = async function gameChecks(browser, url) {
     check((await page.locator("#feedback").textContent()).includes("Not that one") || await page.locator("#ticket").isVisible(), "Keyboard answer activates");
     if (await page.locator("#play").isVisible()) await solve();
 
-    await page.locator("#grownups summary").click();
+    await page.locator("#grownups > summary").click();
     check(await page.locator("#download-button").count() === 0, "No misleading single-file PWA download");
     check(await page.locator("#install-status").textContent(), "Manual installation guidance available");
     check(external.length === 0, "Game makes no cross-origin requests");
@@ -171,7 +171,7 @@ module.exports = async function gameChecks(browser, url) {
     const blockedPage = await noStorage.newPage();
     await blockedPage.goto(url);
     check(await blockedPage.locator("#answers button").count() === 3, "Works with localStorage blocked");
-    await blockedPage.locator("#grownups summary").click();
+    await blockedPage.locator("#grownups > summary").click();
     check((await blockedPage.locator("#settings-note").textContent()).includes("cannot be read"), "Storage load limitation disclosed");
     await blockedPage.locator("#apply-settings").click();
     check((await blockedPage.locator("#settings-note").textContent()).includes("visit only"), "Storage save limitation disclosed");
@@ -187,10 +187,10 @@ module.exports = async function gameChecks(browser, url) {
     });
     const speechPage = await speechContext.newPage();
     await speechPage.goto(url);
-    await speechPage.locator("#grownups summary").click();
+    await speechPage.locator("#grownups > summary").click();
     await speechPage.locator("#speech").check();
     await speechPage.locator("#apply-settings").click();
-    await speechPage.locator("#grownups summary").click();
+    await speechPage.locator("#grownups > summary").click();
     check(await speechPage.evaluate(() => speechCalls.length === 0), "Speech never auto-plays");
     await speechPage.locator("#read-button").click();
     check(await speechPage.evaluate(() => speechCalls.length === 1), "Speech requires explicit click");
@@ -213,7 +213,7 @@ module.exports = async function gameChecks(browser, url) {
     await touchPage.locator("#resume-button").tap();
     check(await touchPage.locator("#hint").isVisible(), "Landscape tablet touch preserves hint across break");
     check(await touchPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "Landscape tablet reflows");
-    await touchPage.locator("#grownups summary").tap();
+    await touchPage.locator("#grownups > summary").tap();
     if (results) await touchPage.screenshot({ path: path.join(results, "tablet-settings.png"), fullPage: true });
     await touchContext.close();
     const edge = await chromium.launch({ channel: "msedge", headless: true });

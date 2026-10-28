@@ -118,13 +118,13 @@ module.exports = async function enhancementChecks(browser, url) {
   check(requests.length === requestCount, "Bonus and puzzle interactions cause no network requests");
   check(await page.evaluate(() => storageWrites.length === 0 && localStorage.length === 0 && sessionStorage.length === 0), "Routine choices and puzzle results have no durable history");
   check(await page.evaluate(() => speechCalls.length === 0), "No sound from celebrations or check-ins");
-  await page.locator("#grownups summary").click();
+  await page.locator("#grownups > summary").click();
   await page.locator("#speech").check();
   await page.locator("#apply-settings").click();
   check(await page.evaluate(() => speechCalls.length === 0), "Enabling speech does not play anything");
   check(await page.evaluate(() => storageWrites.every(({ key, value }) =>
     key === "cosy-cat-club.preferences.v1" && JSON.stringify(Object.keys(JSON.parse(value)).sort()) === JSON.stringify(["level", "reward", "simple", "speech"]))), "Only the four non-history preferences persist");
-  await page.locator("#grownups summary").click();
+  await page.locator("#grownups > summary").click();
   await solve(page);
   check(await page.evaluate(() => speechCalls.length === 0), "Win does not speak even when read-aloud is enabled");
   await page.locator("#next-round").click();
@@ -219,7 +219,7 @@ module.exports = async function enhancementChecks(browser, url) {
     await renderPage.locator("#next-round").click();
   }
   await renderPage.locator("#wellbeing summary").click();
-  await renderPage.locator("#grownups summary").click();
+  await renderPage.locator("#grownups > summary").click();
   await renderPage.addStyleTag({ content: "html{font-size:200%!important} *{line-height:1.5!important;letter-spacing:.12em!important;word-spacing:.16em!important} p{margin-bottom:2em!important}" });
   check(await renderPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "New controls reflow at 320px with double text size and spacing");
   await renderer.close();
